@@ -1,4 +1,4 @@
-const CACHE_NAME = 'study-planner-v4';
+const CACHE_NAME = 'study-planner-v5';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {

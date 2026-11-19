@@ -774,8 +774,20 @@
                         renderAll();
                         updateAccountUI(null);
                         updateSyncStatusUI(false);
-                        localStorage.removeItem(AUTH_SESSION_HINT_KEY);
-                        openAccountModal();
+                        const hasSessionHint = !!localStorage.getItem(AUTH_SESSION_HINT_KEY);
+                        if (!hasSessionHint) {
+                            openAccountModal();
+                        } else {
+                            setTimeout(async () => {
+                                if (typeof fbAuth.authStateReady === 'function') {
+                                    await fbAuth.authStateReady();
+                                }
+                                if (!fbAuth.currentUser && currentUser === null) {
+                                    localStorage.removeItem(AUTH_SESSION_HINT_KEY);
+                                    openAccountModal();
+                                }
+                            }, 1500);
+                        }
                         return;
                     }
                     if (currentUser && currentUser.uid !== user.uid) {
