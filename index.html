@@ -506,7 +506,7 @@
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. QUẢN LÝ TRẠNG THÁI & DỮ LIỆU ---
-        const STORAGE_KEY = 'daily_study_planner_v1';
+        const STORAGE_KEY_PREFIX = 'daily_study_planner_v1';
         const FB_CONFIG_KEY = 'daily_study_planner_fb_config';
         const SYNC_ID_KEY = 'daily_study_planner_sync_id';
         const DEFAULT_SYNC_ID = 'duc-planner-2026';
@@ -611,8 +611,13 @@
         }
 
         function loadFromStorage() {
+            if (!currentUser) {
+                state.days = {};
+                return;
+            }
+            const storageKey = `${STORAGE_KEY_PREFIX}_${currentUser.uid}`;
             try {
-                const raw = localStorage.getItem(STORAGE_KEY);
+                const raw = localStorage.getItem(storageKey);
                 if (raw) {
                     const parsed = JSON.parse(raw);
                     if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
@@ -623,14 +628,16 @@
             } catch (e) {
                 console.error('Lỗi đọc dữ liệu từ localStorage:', e);
             }
-            initSampleData();
+            state.days = {};
         }
 
         async function saveToStorage() {
             localMutationAt = Date.now();
             pendingLocalWrite = isCloudConnected;
             try {
-                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
+                if (currentUser) {
+                    localStorage.setItem(`${STORAGE_KEY_PREFIX}_${currentUser.uid}`, JSON.stringify(state.days));
+                }
             } catch (e) {
                 console.error('Lỗi lưu dữ liệu localStorage:', e);
             }
@@ -647,7 +654,7 @@
                 } catch (err) {
                     console.error('Lỗi đồng bộ lên Firestore:', err);
                     pendingLocalWrite = false;
-                    showToast('Lỗi đồng bộ Cloud: Hãy kiểm tra lại quyền Firestore (Test Mode) hoặc Anonymous Auth.', 'error');
+                    showToast('Lỗi đồng bộ Cloud: Kiểm tra Email/Password và Firestore Rules cho tài khoản hiện tại.', 'error');
                 }
             }
         }
@@ -718,13 +725,23 @@
                     if (!user) {
                         currentUser = null;
                         isCloudConnected = false;
+                        state.days = {};
+                        state.selectedDate = todayKey;
+                        renderAll();
                         updateAccountUI(null);
                         updateSyncStatusUI(false);
                         openAccountModal();
                         return;
                     }
+                    if (currentUser && currentUser.uid !== user.uid) {
+                        pendingLocalWrite = false;
+                        isApplyingRemoteUpdate = false;
+                    }
                     currentUser = user;
                     isCloudConnected = true;
+                    state.days = {};
+                    loadFromStorage();
+                    renderAll();
                     updateAccountUI(user);
                     closeAccountModal();
                     subscribeToCurrentUser(user);
@@ -763,7 +780,7 @@
                         }
                         isApplyingRemoteUpdate = true;
                         state.days = remoteData.days;
-                        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
+                        localStorage.setItem(`${STORAGE_KEY_PREFIX}_${user.uid}`, JSON.stringify(state.days));
                         renderAll();
                         isApplyingRemoteUpdate = false;
                     }
@@ -858,7 +875,7 @@
                 document.getElementById('account-password').value = '';
             } catch (error) {
                 let message = error.message;
-                if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
                     message = 'Email hoặc mật khẩu không đúng.';
                 }
                 showToast(message, 'error');
@@ -870,6 +887,10 @@
                 unsubscribeSnapshot();
                 unsubscribeSnapshot = null;
             }
+            currentUser = null;
+            state.days = {};
+            state.selectedDate = todayKey;
+            renderAll();
             await signOut(fbAuth);
             openAccountModal();
         };
@@ -1691,7 +1712,7 @@
             const activeConfig = getActiveFirebaseConfig();
             const connected = await connectToFirebase(activeConfig, '');
             if (!connected) {
-                showToast('Chưa thể đồng bộ Cloud: Hãy đảm bảo đã bật Firestore (Test Mode) & Anonymous Auth trên Firebase!', 'error');
+                showToast('Chưa thể đồng bộ Cloud: Hãy đảm bảo đã bật Email/Password và Firestore Rules.', 'error');
             }
         });
     </script>
