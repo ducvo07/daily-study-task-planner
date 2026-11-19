@@ -752,12 +752,19 @@
                 fbAuth = getAuth(fbApp);
                 fbDb = getFirestore(fbApp);
                 await setPersistence(fbAuth, browserLocalPersistence);
+                if (typeof fbAuth.authStateReady === 'function') {
+                    await fbAuth.authStateReady();
+                }
 
-                onAuthStateChanged(fbAuth, (user) => {
+                const handleAuthState = (user) => {
                     if (!user) {
                         if (unsubscribeSnapshot) {
                             unsubscribeSnapshot();
                             unsubscribeSnapshot = null;
+                        }
+                        if (realtimeSyncInterval) {
+                            clearInterval(realtimeSyncInterval);
+                            realtimeSyncInterval = null;
                         }
                         currentUser = null;
                         isCloudConnected = false;
@@ -767,11 +774,8 @@
                         renderAll();
                         updateAccountUI(null);
                         updateSyncStatusUI(false);
-                        setTimeout(() => {
-                            if (!currentUser && !localStorage.getItem(AUTH_SESSION_HINT_KEY)) {
-                                openAccountModal();
-                            }
-                        }, 800);
+                        localStorage.removeItem(AUTH_SESSION_HINT_KEY);
+                        openAccountModal();
                         return;
                     }
                     if (currentUser && currentUser.uid !== user.uid) {
@@ -780,6 +784,15 @@
                             unsubscribeSnapshot();
                             unsubscribeSnapshot = null;
                         }
+                        if (realtimeSyncInterval) {
+                            clearInterval(realtimeSyncInterval);
+                            realtimeSyncInterval = null;
+                        }
+                    }
+                    if (currentUser && currentUser.uid === user.uid) {
+                        updateAccountUI(user);
+                        closeAccountModal();
+                        return;
                     }
                     currentUser = user;
                     isCloudConnected = true;
@@ -796,7 +809,10 @@
                     updateAccountUI(user);
                     closeAccountModal();
                     subscribeToCurrentUser(user);
-                });
+                };
+
+                onAuthStateChanged(fbAuth, handleAuthState);
+                handleAuthState(fbAuth.currentUser);
 
                 return true;
             } catch (err) {
@@ -928,10 +944,10 @@
                 clearInterval(realtimeSyncInterval);
                 realtimeSyncInterval = null;
             }
+            localStorage.removeItem(AUTH_SESSION_HINT_KEY);
             if (fbAuth) {
                 await signOut(fbAuth);
             }
-            localStorage.removeItem(AUTH_SESSION_HINT_KEY);
             currentUser = null;
             state.days = {};
             state.selectedDate = todayKey;
