@@ -408,7 +408,7 @@
     <script type="module">
         import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. QUẢN LÝ TRẠNG THÁI & DỮ LIỆU ---
         const STORAGE_KEY_PREFIX = 'daily_study_planner_v1';
@@ -461,9 +461,8 @@
         let unsubscribeSnapshot = null;
         let isCloudConnected = false;
         let isApplyingRemoteUpdate = false;
-        let localMutationAt = 0;
-        let pendingLocalWrite = false;
         let currentUser = null;
+        let realtimeSyncInterval = null;
 
         // Khởi tạo dữ liệu mẫu sinh động nếu người dùng mở lần đầu
         function initSampleData() {
@@ -537,8 +536,6 @@
         }
 
         async function saveToStorage() {
-            localMutationAt = Date.now();
-            pendingLocalWrite = isCloudConnected;
             try {
                 if (currentUser) {
                     localStorage.setItem(`${STORAGE_KEY_PREFIX}_${currentUser.uid}`, JSON.stringify(state.days));
@@ -559,7 +556,6 @@
                     });
                 } catch (err) {
                     console.error('Lỗi đồng bộ lên Firestore:', err);
-                    pendingLocalWrite = false;
                     showToast('Lỗi đồng bộ Cloud: Kiểm tra Email/Password và Firestore Rules cho tài khoản hiện tại.', 'error');
                 }
             }
@@ -617,6 +613,10 @@
                     unsubscribeSnapshot();
                     unsubscribeSnapshot = null;
                 }
+                if (realtimeSyncInterval) {
+                    clearInterval(realtimeSyncInterval);
+                    realtimeSyncInterval = null;
+                }
                 if (fbApp) {
                     await deleteApp(fbApp);
                     fbApp = null;
@@ -635,7 +635,6 @@
                         }
                         currentUser = null;
                         isCloudConnected = false;
-                        pendingLocalWrite = false;
                         isApplyingRemoteUpdate = false;
                         state.days = {};
                         state.selectedDate = todayKey;
@@ -646,7 +645,6 @@
                         return;
                     }
                     if (currentUser && currentUser.uid !== user.uid) {
-                        pendingLocalWrite = false;
                         isApplyingRemoteUpdate = false;
                         if (unsubscribeSnapshot) {
                             unsubscribeSnapshot();
@@ -684,6 +682,10 @@
                 unsubscribeSnapshot();
                 unsubscribeSnapshot = null;
             }
+            if (realtimeSyncInterval) {
+                clearInterval(realtimeSyncInterval);
+                realtimeSyncInterval = null;
+            }
             const syncId = user.uid;
             const docRef = doc(fbDb, 'artifacts', appId, 'users', syncId, 'planner');
 
@@ -695,12 +697,6 @@
                 if (snapshot.exists()) {
                     const remoteData = snapshot.data();
                     if (remoteData && remoteData.days && remoteData.ownerUid === user.uid) {
-                        if (pendingLocalWrite) {
-                            const remoteJson = JSON.stringify(remoteData.days);
-                            const localJson = JSON.stringify(state.days);
-                            if (remoteJson !== localJson) return;
-                            pendingLocalWrite = false;
-                        }
                         isApplyingRemoteUpdate = true;
                         state.days = remoteData.days;
                         localStorage.setItem(`${STORAGE_KEY_PREFIX}_${user.uid}`, JSON.stringify(state.days));
@@ -708,7 +704,6 @@
                         isApplyingRemoteUpdate = false;
                     }
                 } else {
-                    pendingLocalWrite = false;
                     if (currentUser && currentUser.uid === user.uid) {
                         saveToStorage();
                     }
@@ -719,6 +714,28 @@
                 updateSyncStatusUI(false);
                 showToast('Lỗi kết nối Firestore: ' + error.message, 'error');
             });
+
+            realtimeSyncInterval = setInterval(async () => {
+                if (!currentUser || currentUser.uid !== user.uid) return;
+                try {
+                    const snapshot = await getDoc(docRef);
+                    if (!snapshot.exists()) return;
+                    const remoteData = snapshot.data();
+                    if (!remoteData || remoteData.ownerUid !== user.uid || !remoteData.days) return;
+                    const remoteJson = JSON.stringify(remoteData.days);
+                    const localJson = JSON.stringify(state.days);
+                    if (remoteJson === localJson) return;
+
+                    isApplyingRemoteUpdate = true;
+                    state.days = remoteData.days;
+                    localStorage.setItem(`${STORAGE_KEY_PREFIX}_${user.uid}`, JSON.stringify(state.days));
+                    renderAll();
+                    isApplyingRemoteUpdate = false;
+                    updateSyncStatusUI(true, user.uid);
+                } catch (error) {
+                    console.error('Lỗi đồng bộ dự phòng:', error);
+                }
+            }, 5000);
         }
 
         function updateSyncStatusUI(connected, syncId = '') {
@@ -774,6 +791,10 @@
             if (unsubscribeSnapshot) {
                 unsubscribeSnapshot();
                 unsubscribeSnapshot = null;
+            }
+            if (realtimeSyncInterval) {
+                clearInterval(realtimeSyncInterval);
+                realtimeSyncInterval = null;
             }
             if (fbAuth) {
                 await signOut(fbAuth);
