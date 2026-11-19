@@ -556,7 +556,8 @@
                     });
                 } catch (err) {
                     console.error('Lỗi đồng bộ lên Firestore:', err);
-                    showToast('Lỗi đồng bộ Cloud: Kiểm tra Email/Password và Firestore Rules cho tài khoản hiện tại.', 'error');
+                    const firebaseCode = err?.code ? ` (${err.code})` : '';
+                    showToast(`Không thể lưu lên Cloud${firebaseCode}: ${err?.message || 'Lỗi kết nối không xác định'}`, 'error');
                 }
             }
         }
