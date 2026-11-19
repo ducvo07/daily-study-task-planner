@@ -1,0 +1,1590 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Study & Task Planner - Quản Lý Lịch Học & Công Việc</title>
+    <!-- Tải Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tải Font Inter hỗ trợ tiếng Việt mượt mà -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tải Lucide Icons để giao diện sắc nét -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        primary: {
+                            50: '#eef2ff',
+                            100: '#e0e7ff',
+                            500: '#6366f1',
+                            600: '#4f46e5',
+                            700: '#4338ca',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased min-h-screen flex flex-col">
+
+    <!-- Thanh điều hướng trên cùng (Header) -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="bg-indigo-600 text-white p-2 rounded-xl shadow-md shadow-indigo-200">
+                    <i data-lucide="calendar-check-2" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">Study & Task Planner</h1>
+                    <p class="text-xs text-slate-500 hidden sm:block">Kỷ luật bản thân • Tối ưu hiệu suất mỗi ngày</p>
+                </div>
+            </div>
+
+            <!-- Nút chuyển đổi giữa Lịch trình & Thống kê -->
+            <div class="flex items-center gap-2 sm:gap-3">
+                <!-- Nút trạng thái đồng bộ Cloud -->
+                <button onclick="openSyncModal()" id="sync-status-btn" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100" title="Cấu hình đồng bộ điện thoại & máy tính">
+                    <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
+                    <span id="sync-label" class="hidden md:inline">Chế độ cục bộ</span>
+                    <i data-lucide="cloud-cog" class="w-4 h-4"></i>
+                </button>
+
+                <nav class="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+                    <button id="tab-planner" onclick="switchTab('planner')" class="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-indigo-600 shadow-sm">
+                        <i data-lucide="list-todo" class="w-4 h-4"></i>
+                        <span>Lịch Trình</span>
+                    </button>
+                    <button id="tab-analytics" onclick="switchTab('analytics')" class="flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900">
+                        <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                        <span class="hidden sm:inline">Thống Kê & Lý Do</span>
+                        <span class="sm:hidden">Thống Kê</span>
+                        <span id="badge-incomplete-count" class="hidden bg-rose-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">0</span>
+                    </button>
+                </nav>
+            </div>
+        </div>
+    </header>
+
+    <!-- MODAL CẤU HÌNH ĐỒNG BỘ CLOUD & SAO LƯU -->
+    <div id="sync-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4 overflow-y-auto">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 my-8 animate-fade-in">
+            <div class="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div class="flex items-center gap-2.5">
+                    <div class="bg-indigo-100 text-indigo-600 p-2 rounded-xl">
+                        <i data-lucide="cloud" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900">Đồng Bộ Đa Thiết Bị (Máy tính & Điện thoại)</h3>
+                        <p class="text-xs text-slate-500">Kết nối Firebase Firestore để tự động đồng bộ dữ liệu theo thời gian thực</p>
+                    </div>
+                </div>
+                <button onclick="closeSyncModal()" class="p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <div class="mt-4 flex flex-col gap-4">
+                <!-- Trạng thái kết nối hiện tại -->
+                <div id="modal-connection-banner" class="p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-start gap-2.5">
+                    <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+                    <div>
+                        <span class="font-bold block">Đang chạy ở Chế độ Cục bộ (Local Mode)</span>
+                        <span>Dữ liệu hiện chỉ lưu trên trình duyệt này. Hãy dán mã Firebase Config bên dưới để đồng bộ sang điện thoại.</span>
+                    </div>
+                </div>
+
+                <!-- Mã phòng đồng bộ (Sync ID) -->
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">1. Mã định danh đồng bộ (Sync ID)</label>
+                    <p class="text-[11px] text-slate-500 mb-1.5">Nhập cùng một mã này trên cả máy tính và điện thoại để dùng chung dữ liệu:</p>
+                    <div class="flex gap-2">
+                        <input type="text" id="sync-user-id-input" placeholder="VD: lich-hoc-cua-toi-2026" class="flex-1 text-sm rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 px-3.5 py-2 outline-none font-mono">
+                        <button type="button" onclick="generateRandomSyncId()" class="px-3 py-2 text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition shrink-0">
+                            Tạo mã mới
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Ô dán Firebase Config -->
+                <div>
+                    <div class="flex items-center justify-between mb-1">
+                        <label class="block text-xs font-bold text-slate-700">2. Dán mã cấu hình Firebase (firebaseConfig)</label>
+                        <button type="button" onclick="toggleFirebaseGuide()" class="text-[11px] font-semibold text-indigo-600 hover:underline">
+                            Hướng dẫn lấy mã miễn phí?
+                        </button>
+                    </div>
+                    
+                    <!-- Hướng dẫn thu gọn -->
+                    <div id="firebase-guide-box" class="hidden mb-2 p-3 rounded-xl bg-slate-50 border border-slate-200 text-[11px] text-slate-600 space-y-1">
+                        <p class="font-bold text-slate-800">Cách lấy mã Firebase miễn phí trong 2 phút:</p>
+                        <p>1. Truy cập <a href="https://console.firebase.google.com/" target="_blank" class="text-indigo-600 underline font-medium">console.firebase.google.com</a> -> Tạo Project mới.</p>
+                        <p>2. Vào <b>Build -> Firestore Database</b> -> Bấm <b>Create database</b> -> Chọn <b>Start in test mode</b>.</p>
+                        <p>3. Vào <b>Project Settings (biểu tượng bánh răng)</b> -> Mục <b>Your apps</b> -> Chọn biểu tượng Web <code>&lt;/&gt;</code> -> Copy đoạn <code>const firebaseConfig = { ... };</code> và dán thẳng vào ô dưới đây!</p>
+                    </div>
+
+                    <textarea id="firebase-config-input" rows="5" placeholder='Dán toàn bộ đoạn code firebaseConfig vào đây, ví dụ:
+{
+  apiKey: "AIzaSy...",
+  authDomain: "my-planner.firebaseapp.com",
+  projectId: "my-planner",
+  storageBucket: "my-planner.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abcdef"
+}' class="w-full text-xs font-mono rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 p-3 outline-none resize-none"></textarea>
+                </div>
+
+                <!-- Các nút hành động Firebase -->
+                <div class="flex flex-wrap items-center justify-between gap-2 pt-2">
+                    <button type="button" onclick="disconnectFirebase()" id="disconnect-fb-btn" class="hidden text-xs font-semibold text-rose-600 hover:bg-rose-50 px-3 py-2 rounded-xl transition">
+                        Ngắt kết nối Cloud
+                    </button>
+                    <div class="flex items-center gap-2 ml-auto">
+                        <button type="button" onclick="closeSyncModal()" class="px-4 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-100 rounded-xl transition">
+                            Đóng
+                        </button>
+                        <button type="button" onclick="saveAndConnectFirebase()" class="px-4 py-2 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-sm transition flex items-center gap-1.5">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Lưu & Kết nối Đồng bộ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sao lưu dự phòng JSON -->
+                <div class="mt-2 pt-4 border-t border-slate-100">
+                    <span class="block text-xs font-bold text-slate-700 mb-2">Sao lưu & Chuyển dữ liệu thủ công (File JSON)</span>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" onclick="exportDataJson()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5">
+                            <i data-lucide="download" class="w-3.5 h-3.5"></i> Xuất file sao lưu (.json)
+                        </button>
+                        <label class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold py-2 px-3 rounded-xl transition flex items-center justify-center gap-1.5 cursor-pointer">
+                            <i data-lucide="upload" class="w-3.5 h-3.5"></i> Nhập file từ máy khác
+                            <input type="file" accept=".json" onchange="importDataJson(event)" class="hidden">
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Khu vực thông báo Toast tùy chỉnh (Thay thế hoàn toàn alert/confirm) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- NỘI DUNG CHÍNH -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- ==================== VIEW 1: LỊCH TRÌNH HÀNG NGÀY ==================== -->
+        <div id="view-planner" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- Cột trái: Bộ lịch tháng & Tổng quan nhanh (4 cột trên desktop) -->
+            <aside class="lg:col-span-4 flex flex-col gap-6">
+                <!-- Thẻ Lịch Tháng -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 id="calendar-month-year" class="text-base font-bold text-slate-800 capitalize">Tháng 11, 2026</h2>
+                        <div class="flex items-center gap-1">
+                            <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition" title="Tháng trước">
+                                <i data-lucide="chevron-left" class="w-4 h-4"></i>
+                            </button>
+                            <button onclick="goToToday()" class="px-2.5 py-1 text-xs font-semibold bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg transition">
+                                Hôm nay
+                            </button>
+                            <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg text-slate-600 transition" title="Tháng sau">
+                                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Tiêu đề các thứ trong tuần -->
+                    <div class="grid grid-cols-7 text-center text-xs font-semibold text-slate-400 mb-2">
+                        <div>T2</div><div>T3</div><div>T4</div><div>T5</div><div>T6</div><div>T7</div><div class="text-rose-400">CN</div>
+                    </div>
+
+                    <!-- Lưới các ngày trong tháng -->
+                    <div id="calendar-grid" class="grid grid-cols-7 gap-1 text-sm">
+                        <!-- Được render bằng JS -->
+                    </div>
+
+                    <!-- Chú thích màu sắc trạng thái -->
+                    <div class="mt-4 pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> Xong 100%</div>
+                        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span> Một phần</div>
+                        <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-rose-500"></span> Chưa xong</div>
+                    </div>
+                </div>
+
+                <!-- Thẻ Ghi Nhận Lý Do Chưa Hoàn Thành (Chỉ hiện khi ngày đang chọn chưa xong 100%) -->
+                <div id="reason-card" class="hidden bg-white rounded-2xl border-2 border-rose-200 p-5 shadow-sm transition-all">
+                    <div class="flex items-start gap-3 mb-3">
+                        <div class="bg-rose-100 text-rose-600 p-2 rounded-xl shrink-0">
+                            <i data-lucide="alert-circle" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-sm font-bold text-slate-900">Bắt buộc giải trình lý do</h3>
+                            <p class="text-xs text-slate-500 mt-0.5">Ngày này vẫn còn nhiệm vụ chưa hoàn thành. Hãy ghi lại nguyên nhân để rút kinh nghiệm!</p>
+                        </div>
+                    </div>
+
+                    <!-- Các nút gợi ý lý do nhanh -->
+                    <div class="mb-3">
+                        <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Gợi ý nhanh:</span>
+                        <div class="flex flex-wrap gap-1.5" id="quick-reasons">
+                        <button type="button" onclick="selectQuickReason('Bận việc đột xuất')" class="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition">Bận việc đột xuất</button>
+                        <button type="button" onclick="selectQuickReason('Mệt mỏi / Sức khỏe kém')" class="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition">Mệt mỏi / Sức khỏe</button>
+                        <button type="button" onclick="selectQuickReason('Lên kế hoạch quá tải')" class="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition">Lên kế hoạch quá tải</button>
+                        <button type="button" onclick="selectQuickReason('Mất tập trung / Trì hoãn')" class="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition">Mất tập trung</button>
+                        <button type="button" onclick="selectQuickReason('Sự cố kỹ thuật / Mất mạng')" class="text-xs bg-slate-100 hover:bg-rose-50 hover:text-rose-700 hover:border-rose-200 border border-slate-200 text-slate-700 px-2.5 py-1 rounded-lg transition">Sự cố kỹ thuật</button>
+                    </div>
+                    </div>
+
+                    <!-- Ô nhập lý do chi tiết -->
+                    <textarea id="reason-input" rows="3" placeholder="Nhập lý do chi tiết tại sao bạn chưa hoàn thành hết task hôm nay..." class="w-full text-sm rounded-xl border border-slate-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-200 p-3 outline-none transition resize-none"></textarea>
+                    
+                    <div class="mt-3 flex items-center justify-between">
+                        <span id="reason-saved-status" class="text-xs font-medium text-emerald-600 flex items-center gap-1 hidden">
+                            <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i> Đã lưu lý do
+                        </span>
+                        <button onclick="saveDayReason()" class="ml-auto bg-rose-600 hover:bg-rose-700 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-sm transition flex items-center gap-1.5">
+                            <i data-lucide="save" class="w-3.5 h-3.5"></i> Lưu Lý Do
+                        </button>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Cột phải: Chi tiết lịch trình & Danh sách Task của ngày (8 cột trên desktop) -->
+            <section class="lg:col-span-8 flex flex-col gap-5">
+                
+                <!-- Thanh điều hướng ngày & Trạng thái đánh giá tự động -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div class="flex items-center gap-3">
+                            <button onclick="navigateDay(-1)" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Ngày hôm trước">
+                                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+                            </button>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h2 id="selected-date-title" class="text-lg sm:text-xl font-bold text-slate-900">Hôm nay, 18/11/2026</h2>
+                                    <span id="today-badge" class="bg-indigo-100 text-indigo-700 text-xs font-bold px-2.5 py-0.5 rounded-full">Hôm nay</span>
+                                </div>
+                                <p id="selected-date-subtitle" class="text-xs text-slate-500 mt-0.5">Thứ Tư • Lên kế hoạch chi tiết để đạt mục tiêu</p>
+                            </div>
+                            <button onclick="navigateDay(1)" class="p-2.5 bg-slate-100 hover:bg-slate-200 rounded-xl text-slate-700 transition" title="Ngày hôm sau">
+                                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                            </button>
+                        </div>
+
+                        <!-- Huy hiệu trạng thái tự động đánh giá -->
+                        <div id="day-status-badge" class="self-start sm:self-center px-3.5 py-2 rounded-xl border text-xs font-bold flex items-center gap-2">
+                            <!-- Cập nhật động qua JS -->
+                        </div>
+                    </div>
+
+                    <!-- Thanh tiến độ hoàn thành trong ngày -->
+                    <div class="mt-5">
+                        <div class="flex justify-between items-center text-xs font-semibold mb-1.5">
+                            <span class="text-slate-600">Tiến độ hoàn thành nhiệm vụ</span>
+                            <span id="progress-text" class="text-indigo-600">0/0 (0%)</span>
+                        </div>
+                        <div class="w-full bg-slate-100 h-2.5 rounded-full overflow-hidden">
+                            <div id="progress-bar" class="bg-indigo-600 h-full rounded-full transition-all duration-500" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form thêm / chỉnh sửa Task -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 id="form-title" class="text-sm font-bold text-slate-800 flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i> Thêm nhiệm vụ / lịch học mới
+                        </h3>
+                        <button id="cancel-edit-btn" onclick="resetTaskForm()" class="hidden text-xs text-slate-500 hover:text-rose-600 font-medium">
+                            Hủy chỉnh sửa
+                        </button>
+                    </div>
+                    
+                    <form id="task-form" onsubmit="handleTaskSubmit(event)" class="grid grid-cols-1 sm:grid-cols-12 gap-3">
+                        <input type="hidden" id="edit-task-id" value="">
+                        
+                        <!-- Tên công việc / môn học -->
+                        <div class="sm:col-span-5">
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Nội dung nhiệm vụ *</label>
+                            <input type="text" id="task-title" required placeholder="VD: Ôn tập Giải tích chương 2..." class="w-full text-sm rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 px-3.5 py-2.5 outline-none transition">
+                        </div>
+
+                        <!-- Khung giờ -->
+                        <div class="sm:col-span-3">
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Khung giờ</label>
+                            <input type="text" id="task-time" placeholder="VD: 08:00 - 10:00" class="w-full text-sm rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 px-3 py-2.5 outline-none transition">
+                        </div>
+
+                        <!-- Mức độ ưu tiên -->
+                        <div class="sm:col-span-2">
+                            <label class="block text-[11px] font-semibold text-slate-500 mb-1">Ưu tiên</label>
+                            <select id="task-priority" class="w-full text-sm rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 px-2.5 py-2.5 outline-none bg-white transition">
+                                <option value="high">Cao 🔴</option>
+                                <option value="medium" selected>Trung bình 🟡</option>
+                                <option value="low">Thấp 🟢</option>
+                            </select>
+                        </div>
+
+                        <!-- Nút Submit -->
+                        <div class="sm:col-span-2 flex items-end">
+                            <button type="submit" id="submit-task-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold py-2.5 px-4 rounded-xl shadow-sm shadow-indigo-200 transition flex items-center justify-center gap-1.5">
+                                <i data-lucide="plus" class="w-4 h-4"></i>
+                                <span>Thêm</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Danh sách nhiệm vụ trong ngày -->
+                <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex-1">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-slate-100">
+                        <h3 class="text-sm font-bold text-slate-800">Danh sách nhiệm vụ trong ngày</h3>
+                        <div class="flex items-center gap-2 text-xs">
+                            <button onclick="filterTasks('all')" id="filter-all" class="px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 text-indigo-600">Tất cả</button>
+                            <button onclick="filterTasks('pending')" id="filter-pending" class="px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:bg-slate-100">Chưa xong</button>
+                            <button onclick="filterTasks('completed')" id="filter-completed" class="px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:bg-slate-100">Đã xong</button>
+                        </div>
+                    </div>
+
+                    <!-- Container chứa các item task -->
+                    <div id="task-list" class="flex flex-col gap-2.5">
+                        <!-- Render bằng JS -->
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==================== VIEW 2: THỐNG KÊ & LỊCH SỬ LÝ DO ==================== -->
+        <div id="view-analytics" class="hidden flex-col gap-6">
+            
+            <!-- Hàng 1: 4 Thẻ chỉ số KPI tổng quan -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="bg-indigo-100 text-indigo-600 p-3 rounded-xl">
+                        <i data-lucide="target" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Tỷ lệ hoàn thành Task</p>
+                        <h4 id="stat-completion-rate" class="text-2xl font-bold text-slate-900 mt-0.5">0%</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="bg-amber-100 text-amber-600 p-3 rounded-xl">
+                        <i data-lucide="flame" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Chuỗi hoàn thành (Streak)</p>
+                        <h4 id="stat-streak" class="text-2xl font-bold text-slate-900 mt-0.5">0 ngày</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="bg-emerald-100 text-emerald-600 p-3 rounded-xl">
+                        <i data-lucide="check-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Ngày hoàn thành 100%</p>
+                        <h4 id="stat-perfect-days" class="text-2xl font-bold text-slate-900 mt-0.5">0 ngày</h4>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4">
+                    <div class="bg-rose-100 text-rose-600 p-3 rounded-xl">
+                        <i data-lucide="x-circle" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500">Ngày chưa hoàn thành</p>
+                        <h4 id="stat-incomplete-days" class="text-2xl font-bold text-rose-600 mt-0.5">0 ngày</h4>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Hàng 2: Phân tích nguyên nhân & Danh sách chi tiết các ngày chưa hoàn thành -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Cột trái: Biểu đồ phân bổ lý do thường gặp (5 cột) -->
+                <div class="lg:col-span-5 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2 mb-1">
+                            <i data-lucide="pie-chart" class="w-5 h-5 text-indigo-600"></i> Phân tích nguyên nhân trì hoãn
+                        </h3>
+                        <p class="text-xs text-slate-500 mb-5">Thống kê tần suất các lý do khiến bạn không hoàn thành mục tiêu ngày</p>
+                        
+                        <div id="reason-chart-container" class="flex flex-col gap-4">
+                            <!-- Render thanh tiến độ lý do bằng JS -->
+                        </div>
+                    </div>
+
+                    <div class="mt-6 pt-4 border-t border-slate-100 bg-indigo-50/60 p-4 rounded-xl">
+                        <h4 class="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                            <i data-lucide="lightbulb" class="w-4 h-4 text-indigo-600"></i> Lời khuyên cải thiện
+                        </h4>
+                        <p id="analytics-advice" class="text-xs text-indigo-700 mt-1 leading-relaxed">
+                            Hãy duy trì thói quen chia nhỏ mục tiêu và ghi nhận trung thực lý do mỗi khi trễ kế hoạch để tối ưu lịch trình tuần tới.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Cột phải: Nhật ký chi tiết các ngày không hoàn thành nhiệm vụ (7 cột) -->
+                <div class="lg:col-span-7 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+                        <div>
+                            <h3 class="text-base font-bold text-slate-900 flex items-center gap-2">
+                                <i data-lucide="clipboard-list" class="w-5 h-5 text-rose-600"></i> Nhật ký các ngày chưa hoàn thành
+                            </h3>
+                            <p class="text-xs text-slate-500">Danh sách tổng hợp các ngày còn tồn đọng task kèm lý do giải trình</p>
+                        </div>
+                        <button onclick="resetSampleData()" class="text-xs text-slate-500 hover:text-indigo-600 underline" title="Khôi phục dữ liệu mẫu ban đầu">
+                            Khôi phục dữ liệu mẫu
+                        </button>
+                    </div>
+
+                    <div id="incomplete-history-list" class="flex flex-col gap-3 max-h-[520px] overflow-y-auto pr-1">
+                        <!-- Render bằng JS -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+        <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-400">
+            Daily Study & Task Planner • Hỗ trợ đồng bộ đa thiết bị qua Firebase Firestore & Sao lưu ngoại tuyến
+        </div>
+    </footer>
+
+    <!-- ==================== JAVASCRIPT LOGIC & FIREBASE CLOUD SYNC ==================== -->
+    <script type="module">
+        import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 1. QUẢN LÝ TRẠNG THÁI & DỮ LIỆU ---
+        const STORAGE_KEY = 'daily_study_planner_v1';
+        const FB_CONFIG_KEY = 'daily_study_planner_fb_config';
+        const SYNC_ID_KEY = 'daily_study_planner_sync_id';
+        const DEFAULT_SYNC_ID = 'duc-planner-2026';
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'study-and-task-planner';
+
+        // Cấu hình Firebase đã được nhúng trực tiếp cho dự án study-and-task-planner
+        const DEFAULT_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyDY1nOkErIoHR3oyPU3w71agYY1jq24x5k",
+            authDomain: "study-and-task-planner.firebaseapp.com",
+            projectId: "study-and-task-planner",
+            storageBucket: "study-and-task-planner.firebasestorage.app",
+            messagingSenderId: "407398327131",
+            appId: "1:407398327131:web:9cbcb299e9284fcd62707e",
+            measurementId: "G-FZSVZB2Q3Y"
+        };
+        
+        // Hàm lấy chuỗi ngày chuẩn YYYY-MM-DD theo giờ địa phương
+        function formatDateKey(dateObj) {
+            const y = dateObj.getFullYear();
+            const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const d = String(dateObj.getDate()).padStart(2, '0');
+            return `${y}-${m}-${d}`;
+        }
+
+        function parseDateKey(dateStr) {
+            const [y, m, d] = dateStr.split('-').map(Number);
+            return new Date(y, m - 1, d);
+        }
+
+        // Trạng thái ứng dụng toàn cục
+        const todayObj = new Date();
+        const todayKey = formatDateKey(todayObj);
+
+        let state = {
+            selectedDate: todayKey,
+            currentMonth: todayObj.getMonth(),
+            currentYear: todayObj.getFullYear(),
+            filter: 'all',
+            // Cấu trúc dữ liệu: { "YYYY-MM-DD": { tasks: [...], reason: "..." } }
+            days: {}
+        };
+
+        // Biến quản lý Firebase Cloud Sync
+        let fbApp = null;
+        let fbDb = null;
+        let fbAuth = null;
+        let unsubscribeSnapshot = null;
+        let isCloudConnected = false;
+        let isApplyingRemoteUpdate = false;
+        let localMutationAt = 0;
+        let pendingLocalWrite = false;
+
+        // Khởi tạo dữ liệu mẫu sinh động nếu người dùng mở lần đầu
+        function initSampleData() {
+            const yesterday = new Date(todayObj);
+            yesterday.setDate(todayObj.getDate() - 1);
+            const yesterdayKey = formatDateKey(yesterday);
+
+            const twoDaysAgo = new Date(todayObj);
+            twoDaysAgo.setDate(todayObj.getDate() - 2);
+            const twoDaysAgoKey = formatDateKey(twoDaysAgo);
+
+            const threeDaysAgo = new Date(todayObj);
+            threeDaysAgo.setDate(todayObj.getDate() - 3);
+            const threeDaysAgoKey = formatDateKey(threeDaysAgo);
+
+            state.days = {
+                [threeDaysAgoKey]: {
+                    tasks: [
+                        { id: 't1', title: 'Hoàn thành bài tập Cấu trúc dữ liệu & Giải thuật', time: '08:00 - 10:00', priority: 'high', completed: true },
+                        { id: 't2', title: 'Đọc tài liệu tiếng Anh chuyên ngành (2 chương)', time: '14:00 - 15:30', priority: 'medium', completed: true },
+                        { id: 't3', title: 'Chạy bộ 30 phút buổi chiều', time: '17:30 - 18:00', priority: 'low', completed: true }
+                    ],
+                    reason: ''
+                },
+                [twoDaysAgoKey]: {
+                    tasks: [
+                        { id: 't4', title: 'Ôn tập lý thuyết Cơ sở dữ liệu', time: '09:00 - 11:00', priority: 'high', completed: true },
+                        { id: 't5', title: 'Làm đề thi thử môn Toán rời rạc', time: '14:00 - 16:30', priority: 'high', completed: false },
+                        { id: 't6', title: 'Tổng hợp ghi chú bài giảng tuần 5', time: '20:00 - 21:00', priority: 'medium', completed: false }
+                    ],
+                    reason: 'Bận việc đột xuất của gia đình vào buổi chiều nên không kịp làm đề thi thử và tổng hợp ghi chú.'
+                },
+                [yesterdayKey]: {
+                    tasks: [
+                        { id: 't7', title: 'Học từ vựng IELTS (30 từ mới)', time: '08:30 - 09:30', priority: 'medium', completed: true },
+                        { id: 't8', title: 'Code chức năng đăng nhập cho đồ án môn học', time: '13:30 - 17:00', priority: 'high', completed: false }
+                    ],
+                    reason: 'Lên kế hoạch quá tải và gặp lỗi môi trường cài đặt nên mất nhiều thời gian xử lý.'
+                },
+                [todayKey]: {
+                    tasks: [
+                        { id: 't9', title: 'Lập danh sách mục tiêu học tập trong tuần', time: '08:00 - 08:30', priority: 'high', completed: true },
+                        { id: 't10', title: 'Giải 5 bài tập lập trình nâng cao', time: '09:00 - 11:30', priority: 'high', completed: false },
+                        { id: 't11', title: 'Ôn lại kiến thức buổi tối (30 phút)', time: '20:30 - 21:00', priority: 'low', completed: false }
+                    ],
+                    reason: ''
+                }
+            };
+            saveToStorage();
+        }
+
+        function loadFromStorage() {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    if (parsed && typeof parsed === 'object' && Object.keys(parsed).length > 0) {
+                        state.days = parsed;
+                        return;
+                    }
+                }
+            } catch (e) {
+                console.error('Lỗi đọc dữ liệu từ localStorage:', e);
+            }
+            initSampleData();
+        }
+
+        async function saveToStorage() {
+            localMutationAt = Date.now();
+            pendingLocalWrite = isCloudConnected;
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
+            } catch (e) {
+                console.error('Lỗi lưu dữ liệu localStorage:', e);
+            }
+
+            // Nếu đang kết nối Firebase và không phải đang nhận dữ liệu từ Cloud thì đẩy lên Firestore
+            if (isCloudConnected && fbDb && !isApplyingRemoteUpdate) {
+                try {
+                    const syncId = getSyncId();
+                    const docRef = doc(fbDb, 'artifacts', appId, 'public', 'data', 'planners', syncId);
+                    await setDoc(docRef, {
+                        days: state.days,
+                        updatedAt: new Date().toISOString()
+                    });
+                } catch (err) {
+                    console.error('Lỗi đồng bộ lên Firestore:', err);
+                    pendingLocalWrite = false;
+                    showToast('Lỗi đồng bộ Cloud: Hãy kiểm tra lại quyền Firestore (Test Mode) hoặc Anonymous Auth.', 'error');
+                }
+            }
+        }
+
+        // --- QUẢN LÝ KẾT NỐI FIREBASE CLOUD SYNC ---
+        function getSyncId() {
+            let sid = localStorage.getItem(SYNC_ID_KEY);
+            if (!sid) {
+                sid = DEFAULT_SYNC_ID;
+                localStorage.setItem(SYNC_ID_KEY, sid);
+            }
+            return sid;
+        }
+
+        function getActiveFirebaseConfig() {
+            const savedConfigRaw = localStorage.getItem(FB_CONFIG_KEY);
+            if (savedConfigRaw) {
+                try {
+                    const parsed = JSON.parse(savedConfigRaw);
+                    if (parsed && parsed.apiKey && parsed.projectId) return parsed;
+                } catch (e) {
+                    console.warn('Cấu hình tùy chỉnh lỗi, dùng cấu hình mặc định:', e);
+                }
+            }
+            return DEFAULT_FIREBASE_CONFIG;
+        }
+
+        // Hàm bóc tách thông minh đối tượng firebaseConfig dù người dùng dán nguyên đoạn code JS
+        function parseFirebaseConfigInput(rawText) {
+            const trimmed = rawText.trim();
+            if (!trimmed) return null;
+
+            const startIdx = trimmed.indexOf('{');
+            const endIdx = trimmed.lastIndexOf('}');
+            if (startIdx === -1 || endIdx === -1 || endIdx <= startIdx) {
+                throw new Error('Không tìm thấy dấu ngoặc nhọn { ... } hợp lệ của firebaseConfig.');
+            }
+
+            const objLiteral = trimmed.substring(startIdx, endIdx + 1);
+            try {
+                return JSON.parse(objLiteral);
+            } catch (_) {
+                const parsedObj = (new Function('return (' + objLiteral + ')'))();
+                if (parsedObj && typeof parsedObj === 'object') {
+                    return parsedObj;
+                }
+                throw new Error('Định dạng firebaseConfig không hợp lệ.');
+            }
+        }
+
+        async function connectToFirebase(configObj, syncId) {
+            try {
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                    unsubscribeSnapshot = null;
+                }
+                if (fbApp) {
+                    await deleteApp(fbApp);
+                    fbApp = null;
+                }
+
+                fbApp = initializeApp(configObj, 'planner-sync-app-' + Date.now());
+                fbAuth = getAuth(fbApp);
+                fbDb = getFirestore(fbApp);
+
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(fbAuth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(fbAuth);
+                }
+
+                const docRef = doc(fbDb, 'artifacts', appId, 'public', 'data', 'planners', syncId);
+
+                unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
+                    isCloudConnected = true;
+                    updateSyncStatusUI(true, syncId);
+
+                    if (snapshot.exists()) {
+                        const remoteData = snapshot.data();
+                        if (remoteData && remoteData.days) {
+                            // Không áp dụng snapshot cũ khi một thao tác xóa/cập nhật
+                            // vừa được ghi; chờ đến khi Firestore trả về đúng dữ liệu mới.
+                            if (pendingLocalWrite) {
+                                const remoteJson = JSON.stringify(remoteData.days);
+                                const localJson = JSON.stringify(state.days);
+                                if (remoteJson !== localJson) return;
+                                pendingLocalWrite = false;
+                            }
+                            isApplyingRemoteUpdate = true;
+                            state.days = remoteData.days;
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
+                            renderAll();
+                            isApplyingRemoteUpdate = false;
+                        }
+                    } else {
+                        pendingLocalWrite = false;
+                        saveToStorage();
+                    }
+                }, (error) => {
+                    console.error('Lỗi lắng nghe Firestore:', error);
+                    isCloudConnected = false;
+                    updateSyncStatusUI(false);
+                    showToast('Lỗi kết nối Firestore: ' + error.message, 'error');
+                });
+
+                return true;
+            } catch (err) {
+                console.error('Lỗi khởi tạo Firebase:', err);
+                isCloudConnected = false;
+                updateSyncStatusUI(false);
+                showToast('Không thể kết nối Firebase: ' + err.message, 'error');
+                return false;
+            }
+        }
+
+        function updateSyncStatusUI(connected, syncId = '') {
+            const btn = document.getElementById('sync-status-btn');
+            const dot = document.getElementById('sync-dot');
+            const label = document.getElementById('sync-label');
+            const banner = document.getElementById('modal-connection-banner');
+            const disconnectBtn = document.getElementById('disconnect-fb-btn');
+
+            if (connected) {
+                btn.className = 'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100';
+                dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+                label.textContent = `Đã đồng bộ (${syncId})`;
+
+                banner.className = 'p-3.5 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-800 text-xs flex items-start gap-2.5';
+                banner.innerHTML = `
+                    <i data-lucide="check-circle-2" class="w-4 h-4 shrink-0 mt-0.5 text-emerald-600"></i>
+                    <div>
+                        <span class="font-bold block">Đã kết nối Đồng bộ Cloud (Sync ID: ${escapeHtml(syncId)})</span>
+                        <span>Mọi thay đổi trên máy tính hoặc điện thoại dùng cùng Sync ID này sẽ tự động cập nhật tức thì!</span>
+                    </div>
+                `;
+                disconnectBtn.classList.remove('hidden');
+            } else {
+                btn.className = 'flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100';
+                dot.className = 'w-2 h-2 rounded-full bg-amber-500';
+                label.textContent = 'Chế độ cục bộ';
+
+                banner.className = 'p-3.5 rounded-xl border border-amber-200 bg-amber-50 text-amber-800 text-xs flex items-start gap-2.5';
+                banner.innerHTML = `
+                    <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5 text-amber-600"></i>
+                    <div>
+                        <span class="font-bold block">Đang chạy ở Chế độ Cục bộ (Local Mode)</span>
+                        <span>Dữ liệu hiện chỉ lưu trên trình duyệt này. Hãy kết nối Firebase để đồng bộ sang điện thoại.</span>
+                    </div>
+                `;
+                disconnectBtn.classList.add('hidden');
+            }
+            lucide.createIcons();
+        }
+
+        // Các hàm điều khiển Modal Đồng bộ
+        window.openSyncModal = function() {
+            const modal = document.getElementById('sync-modal');
+            document.getElementById('sync-user-id-input').value = getSyncId();
+            document.getElementById('firebase-config-input').value = JSON.stringify(getActiveFirebaseConfig(), null, 2);
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        };
+
+        window.closeSyncModal = function() {
+            const modal = document.getElementById('sync-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.toggleFirebaseGuide = function() {
+            const box = document.getElementById('firebase-guide-box');
+            box.classList.toggle('hidden');
+        };
+
+        window.generateRandomSyncId = function() {
+            const randomPart = Math.random().toString(36).substring(2, 7);
+            document.getElementById('sync-user-id-input').value = `planner-${randomPart}`;
+        };
+
+        window.saveAndConnectFirebase = async function() {
+            const syncIdInput = document.getElementById('sync-user-id-input').value.trim();
+            const rawConfig = document.getElementById('firebase-config-input').value.trim();
+
+            if (!syncIdInput) {
+                showToast('Vui lòng nhập Mã định danh đồng bộ (Sync ID)!', 'warning');
+                return;
+            }
+            if (!rawConfig) {
+                showToast('Vui lòng dán mã cấu hình firebaseConfig!', 'warning');
+                return;
+            }
+
+            try {
+                const configObj = parseFirebaseConfigInput(rawConfig);
+                if (!configObj.apiKey || !configObj.projectId) {
+                    showToast('Mã firebaseConfig thiếu apiKey hoặc projectId!', 'error');
+                    return;
+                }
+
+                localStorage.setItem(SYNC_ID_KEY, syncIdInput);
+                localStorage.setItem(FB_CONFIG_KEY, JSON.stringify(configObj));
+
+                showToast('Đang kết nối tới Firebase Cloud...', 'info');
+                const success = await connectToFirebase(configObj, syncIdInput);
+                if (success) {
+                    showToast('Đã kết nối đồng bộ Cloud thành công!', 'success');
+                    closeSyncModal();
+                }
+            } catch (e) {
+                showToast('Lỗi đọc cấu hình: ' + e.message, 'error');
+            }
+        };
+
+        window.disconnectFirebase = async function() {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+            if (fbApp) {
+                await deleteApp(fbApp);
+                fbApp = null;
+            }
+            isCloudConnected = false;
+            localStorage.removeItem(FB_CONFIG_KEY);
+            document.getElementById('firebase-config-input').value = JSON.stringify(DEFAULT_FIREBASE_CONFIG, null, 2);
+            updateSyncStatusUI(false);
+            showToast('Đã ngắt kết nối Cloud, quay về chế độ lưu cục bộ.', 'info');
+        };
+
+        // Xuất / Nhập file JSON thủ công
+        window.exportDataJson = function() {
+            const dataStr = JSON.stringify(state.days, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lich-hoc-backup-${todayKey}.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            showToast('Đã tải xuống tệp sao lưu dữ liệu (.json)!', 'success');
+        };
+
+        window.importDataJson = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    if (imported && typeof imported === 'object') {
+                        state.days = imported;
+                        saveToStorage();
+                        renderAll();
+                        showToast('Đã nhập dữ liệu thành công từ tệp sao lưu!', 'success');
+                        closeSyncModal();
+                    } else {
+                        showToast('Tệp sao lưu không đúng định dạng!', 'error');
+                    }
+                } catch (err) {
+                    showToast('Lỗi đọc tệp JSON: ' + err.message, 'error');
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        window.resetSampleData = function() {
+            initSampleData();
+            renderAll();
+            showToast('Đã khôi phục dữ liệu mẫu ban đầu.', 'info');
+        };
+
+        // --- 2. HỆ THỐNG THÔNG BÁO TOAST ---
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const styles = {
+                success: 'bg-emerald-600 text-white',
+                warning: 'bg-amber-500 text-white',
+                error: 'bg-rose-600 text-white',
+                info: 'bg-slate-800 text-white'
+            };
+
+            const icons = {
+                success: 'check-circle',
+                warning: 'alert-triangle',
+                error: 'x-circle',
+                info: 'info'
+            };
+
+            toast.className = `${styles[type] || styles.info} px-4 py-3 rounded-xl shadow-lg text-xs font-semibold flex items-center gap-2.5 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto max-w-sm`;
+            toast.innerHTML = `<i data-lucide="${icons[type]}" class="w-4 h-4 shrink-0"></i><span>${message}</span>`;
+            
+            container.appendChild(toast);
+            lucide.createIcons();
+
+            requestAnimationFrame(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            });
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3200);
+        }
+
+        // --- 3. ĐIỀU HƯỚNG TAB & LỊCH ---
+        window.switchTab = function(tabName) {
+            const viewPlanner = document.getElementById('view-planner');
+            const viewAnalytics = document.getElementById('view-analytics');
+            const btnPlanner = document.getElementById('tab-planner');
+            const btnAnalytics = document.getElementById('tab-analytics');
+
+            if (tabName === 'planner') {
+                viewPlanner.classList.remove('hidden');
+                viewPlanner.classList.add('grid');
+                viewAnalytics.classList.add('hidden');
+                viewAnalytics.classList.remove('flex');
+
+                btnPlanner.className = 'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-indigo-600 shadow-sm';
+                btnAnalytics.className = 'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900';
+            } else {
+                viewPlanner.classList.add('hidden');
+                viewPlanner.classList.remove('grid');
+                viewAnalytics.classList.remove('hidden');
+                viewAnalytics.classList.add('flex');
+
+                btnAnalytics.className = 'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all bg-white text-indigo-600 shadow-sm';
+                btnPlanner.className = 'flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-semibold transition-all text-slate-600 hover:text-slate-900';
+                
+                renderAnalytics();
+            }
+        };
+
+        window.selectDate = function(dateKey) {
+            state.selectedDate = dateKey;
+            const d = parseDateKey(dateKey);
+            state.currentMonth = d.getMonth();
+            state.currentYear = d.getFullYear();
+            resetTaskForm();
+            renderAll();
+        };
+
+        window.navigateDay = function(offset) {
+            const current = parseDateKey(state.selectedDate);
+            current.setDate(current.getDate() + offset);
+            selectDate(formatDateKey(current));
+        };
+
+        window.changeMonth = function(offset) {
+            state.currentMonth += offset;
+            if (state.currentMonth > 11) {
+                state.currentMonth = 0;
+                state.currentYear++;
+            } else if (state.currentMonth < 0) {
+                state.currentMonth = 11;
+                state.currentYear--;
+            }
+            renderCalendar();
+        };
+
+        window.goToToday = function() {
+            selectDate(todayKey);
+        };
+
+        // --- 4. ĐÁNH GIÁ TRẠNG THÁI MỖI NGÀY ---
+        function getDayEvaluation(dateKey) {
+            const dayData = state.days[dateKey];
+            if (!dayData || !dayData.tasks || dayData.tasks.length === 0) {
+                return { status: 'empty', total: 0, completed: 0, percent: 0, reason: dayData?.reason || '' };
+            }
+            const total = dayData.tasks.length;
+            const completed = dayData.tasks.filter(t => t.completed).length;
+            const percent = Math.round((completed / total) * 100);
+
+            // Ngày tương lai là lịch trình chưa đến hạn, không phải ngày chưa hoàn thành.
+            if (dateKey > todayKey) {
+                return {
+                    status: 'upcoming',
+                    total,
+                    completed,
+                    percent,
+                    reason: dayData.reason || ''
+                };
+            }
+
+            let status = 'failed';
+            if (completed === total) status = 'completed';
+            else if (completed > 0) status = 'partial';
+
+            return {
+                status,
+                total,
+                completed,
+                percent,
+                reason: dayData.reason || ''
+            };
+        }
+
+        // --- 5. QUẢN LÝ TASK (THÊM / SỬA / XÓA / TOGGLE) ---
+        function ensureDayExists(dateKey) {
+            if (!state.days[dateKey]) {
+                state.days[dateKey] = { tasks: [], reason: '' };
+            }
+        }
+
+        window.handleTaskSubmit = function(e) {
+            e.preventDefault();
+            const titleInput = document.getElementById('task-title');
+            const timeInput = document.getElementById('task-time');
+            const priorityInput = document.getElementById('task-priority');
+            const editIdInput = document.getElementById('edit-task-id');
+
+            const title = titleInput.value.trim();
+            if (!title) return;
+
+            ensureDayExists(state.selectedDate);
+            const dayTasks = state.days[state.selectedDate].tasks;
+
+            if (editIdInput.value) {
+                const idx = dayTasks.findIndex(t => t.id === editIdInput.value);
+                if (idx !== -1) {
+                    dayTasks[idx].title = title;
+                    dayTasks[idx].time = timeInput.value.trim();
+                    dayTasks[idx].priority = priorityInput.value;
+                    showToast('Đã cập nhật nhiệm vụ thành công!', 'success');
+                }
+            } else {
+                const newTask = {
+                    id: 'task_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    title: title,
+                    time: timeInput.value.trim(),
+                    priority: priorityInput.value,
+                    completed: false
+                };
+                dayTasks.push(newTask);
+                showToast('Đã thêm nhiệm vụ mới vào lịch!', 'success');
+            }
+
+            saveToStorage();
+            resetTaskForm();
+            renderAll();
+        };
+
+        window.toggleTask = function(taskId) {
+            const dayData = state.days[state.selectedDate];
+            if (!dayData) return;
+
+            const task = dayData.tasks.find(t => t.id === taskId);
+            if (task) {
+                task.completed = !task.completed;
+                saveToStorage();
+                renderAll();
+
+                const evalData = getDayEvaluation(state.selectedDate);
+                if (evalData.status === 'completed') {
+                    showToast('Xuất sắc! Bạn đã hoàn thành 100% nhiệm vụ ngày này!', 'success');
+                }
+            }
+        };
+
+        window.editTask = function(taskId) {
+            const dayData = state.days[state.selectedDate];
+            if (!dayData) return;
+
+            const task = dayData.tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            document.getElementById('edit-task-id').value = task.id;
+            document.getElementById('task-title').value = task.title;
+            document.getElementById('task-time').value = task.time || '';
+            document.getElementById('task-priority').value = task.priority || 'medium';
+
+            document.getElementById('form-title').innerHTML = `<i data-lucide="edit-3" class="w-4 h-4 text-amber-600"></i> Chỉnh sửa nhiệm vụ`;
+            document.getElementById('submit-task-btn').innerHTML = `<i data-lucide="check" class="w-4 h-4"></i> <span>Cập nhật</span>`;
+            document.getElementById('cancel-edit-btn').classList.remove('hidden');
+            document.getElementById('task-title').focus();
+            lucide.createIcons();
+        };
+
+        window.deleteTask = function(taskId) {
+            const dayData = state.days[state.selectedDate];
+            if (!dayData) return;
+
+            const originalCount = dayData.tasks.length;
+            dayData.tasks = dayData.tasks.filter(t => t.id !== taskId);
+            if (dayData.tasks.length === originalCount) return;
+
+            if (dayData.tasks.length === 0 && !dayData.reason) {
+                delete state.days[state.selectedDate];
+            }
+
+            saveToStorage();
+            renderAll();
+            showToast('Đã xóa nhiệm vụ.', 'info');
+        };
+
+        window.resetTaskForm = function() {
+            document.getElementById('edit-task-id').value = '';
+            document.getElementById('task-title').value = '';
+            document.getElementById('task-time').value = '';
+            document.getElementById('task-priority').value = 'medium';
+
+            document.getElementById('form-title').innerHTML = `<i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i> Thêm nhiệm vụ / lịch học mới`;
+            document.getElementById('submit-task-btn').innerHTML = `<i data-lucide="plus" class="w-4 h-4"></i> <span>Thêm</span>`;
+            document.getElementById('cancel-edit-btn').classList.add('hidden');
+            lucide.createIcons();
+        };
+
+        window.filterTasks = function(filterType) {
+            state.filter = filterType;
+            ['all', 'pending', 'completed'].forEach(type => {
+                const btn = document.getElementById(`filter-${type}`);
+                if (type === filterType) {
+                    btn.className = 'px-2.5 py-1 rounded-lg font-semibold bg-indigo-50 text-indigo-600';
+                } else {
+                    btn.className = 'px-2.5 py-1 rounded-lg font-medium text-slate-500 hover:bg-slate-100';
+                }
+            });
+            renderTaskList();
+        };
+
+        // --- 6. XỬ LÝ GHI LÝ DO CHO NGÀY KHÔNG HOÀN THÀNH ---
+        window.selectQuickReason = function(reasonText) {
+            const input = document.getElementById('reason-input');
+            if (input.value.trim() === '') {
+                input.value = reasonText;
+            } else if (!input.value.includes(reasonText)) {
+                input.value = input.value.trim() + '. ' + reasonText;
+            }
+            input.focus();
+        };
+
+        window.saveDayReason = function() {
+            const reasonText = document.getElementById('reason-input').value.trim();
+            if (!reasonText) {
+                showToast('Vui lòng nhập lý do tại sao chưa hoàn thành nhiệm vụ!', 'warning');
+                document.getElementById('reason-input').focus();
+                return;
+            }
+
+            ensureDayExists(state.selectedDate);
+            state.days[state.selectedDate].reason = reasonText;
+            saveToStorage();
+
+            const statusEl = document.getElementById('reason-saved-status');
+            statusEl.classList.remove('hidden');
+            renderCalendar();
+            updateIncompleteBadge();
+            showToast('Đã lưu lý do giải trình cho ngày ' + formatDisplayDate(state.selectedDate), 'success');
+        };
+
+        // --- 7. RENDER GIAO DIỆN ---
+        function formatDisplayDate(dateStr) {
+            const [y, m, d] = dateStr.split('-');
+            return `${d}/${m}/${y}`;
+        }
+
+        function getVietnameseWeekday(dateObj) {
+            const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+            return days[dateObj.getDay()];
+        }
+
+        function renderAll() {
+            renderCalendar();
+            renderDayHeader();
+            renderTaskList();
+            renderReasonBox();
+            updateIncompleteBadge();
+            lucide.createIcons();
+        }
+
+        function renderCalendar() {
+            const monthNames = [
+                'Tháng 1', 'Tháng 2', 'Tháng 3', 'Tháng 4', 'Tháng 5', 'Tháng 6',
+                'Tháng 7', 'Tháng 8', 'Tháng 9', 'Tháng 10', 'Tháng 11', 'Tháng 12'
+            ];
+            document.getElementById('calendar-month-year').textContent = `${monthNames[state.currentMonth]}, ${state.currentYear}`;
+
+            const grid = document.getElementById('calendar-grid');
+            grid.innerHTML = '';
+
+            const firstDayOfMonth = new Date(state.currentYear, state.currentMonth, 1);
+            const daysInMonth = new Date(state.currentYear, state.currentMonth + 1, 0).getDate();
+            
+            let startDay = firstDayOfMonth.getDay() - 1;
+            if (startDay < 0) startDay = 6;
+
+            for (let i = 0; i < startDay; i++) {
+                const emptyCell = document.createElement('div');
+                emptyCell.className = 'h-10';
+                grid.appendChild(emptyCell);
+            }
+
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dateObj = new Date(state.currentYear, state.currentMonth, day);
+                const dateKey = formatDateKey(dateObj);
+                const isSelected = dateKey === state.selectedDate;
+                const isToday = dateKey === todayKey;
+                const evalData = getDayEvaluation(dateKey);
+
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.onclick = () => selectDate(dateKey);
+
+                let baseClasses = 'relative h-10 rounded-xl flex flex-col items-center justify-center font-medium transition-all text-xs sm:text-sm ';
+                if (isSelected) {
+                    baseClasses += 'bg-indigo-600 text-white font-bold shadow-md shadow-indigo-200 ';
+                } else if (isToday) {
+                    baseClasses += 'bg-indigo-50 text-indigo-700 font-bold border border-indigo-200 ';
+                } else {
+                    baseClasses += 'hover:bg-slate-100 text-slate-700 ';
+                }
+
+                let dotHtml = '';
+                if (evalData.status === 'completed') {
+                    dotHtml = `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-300' : 'bg-emerald-500'} mt-0.5"></span>`;
+                } else if (evalData.status === 'partial') {
+                    dotHtml = `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-amber-300' : 'bg-amber-400'} mt-0.5"></span>`;
+                } else if (evalData.status === 'failed') {
+                    dotHtml = `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-rose-300' : 'bg-rose-500'} mt-0.5"></span>`;
+                } else if (evalData.status === 'upcoming') {
+                    dotHtml = `<span class="w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-sky-300' : 'bg-sky-400'} mt-0.5"></span>`;
+                } else {
+                    dotHtml = `<span class="w-1.5 h-1.5 rounded-full bg-transparent mt-0.5"></span>`;
+                }
+
+                let missingReasonBadge = '';
+                if ((evalData.status === 'partial' || evalData.status === 'failed') && !evalData.reason.trim()) {
+                    missingReasonBadge = `<span title="Chưa ghi lý do!" class="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>`;
+                }
+
+                btn.className = baseClasses;
+                btn.innerHTML = `
+                    ${missingReasonBadge}
+                    <span>${day}</span>
+                    ${dotHtml}
+                `;
+                grid.appendChild(btn);
+            }
+        }
+
+        function renderDayHeader() {
+            const dateObj = parseDateKey(state.selectedDate);
+            const weekday = getVietnameseWeekday(dateObj);
+            const formatted = formatDisplayDate(state.selectedDate);
+
+            document.getElementById('selected-date-title').textContent = `${weekday}, ${formatted}`;
+            
+            const todayBadge = document.getElementById('today-badge');
+            if (state.selectedDate === todayKey) {
+                todayBadge.classList.remove('hidden');
+            } else {
+                todayBadge.classList.add('hidden');
+            }
+
+            const evalData = getDayEvaluation(state.selectedDate);
+            const statusBadge = document.getElementById('day-status-badge');
+            const progressText = document.getElementById('progress-text');
+            const progressBar = document.getElementById('progress-bar');
+
+            progressText.textContent = `${evalData.completed}/${evalData.total} nhiệm vụ (${evalData.percent}%)`;
+            progressBar.style.width = `${evalData.percent}%`;
+
+            if (evalData.status === 'empty') {
+                statusBadge.className = 'self-start sm:self-center px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-xs font-bold flex items-center gap-2';
+                statusBadge.innerHTML = `<i data-lucide="calendar" class="w-4 h-4 text-slate-400"></i> Chưa có lịch trình`;
+                progressBar.className = 'bg-slate-300 h-full rounded-full transition-all duration-500';
+            } else if (evalData.status === 'upcoming') {
+                statusBadge.className = 'self-start sm:self-center px-3.5 py-2 rounded-xl border border-sky-200 bg-sky-50 text-sky-700 text-xs font-bold flex items-center gap-2';
+                statusBadge.innerHTML = `<i data-lucide="calendar-clock" class="w-4 h-4 text-sky-600"></i> Lịch trình sắp tới`;
+                progressBar.className = 'bg-sky-400 h-full rounded-full transition-all duration-500';
+            } else if (evalData.status === 'completed') {
+                statusBadge.className = 'self-start sm:self-center px-3.5 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-bold flex items-center gap-2';
+                statusBadge.innerHTML = `<i data-lucide="award" class="w-4 h-4 text-emerald-600"></i> Hoàn thành xuất sắc (100%)`;
+                progressBar.className = 'bg-emerald-500 h-full rounded-full transition-all duration-500';
+            } else if (evalData.status === 'partial') {
+                statusBadge.className = 'self-start sm:self-center px-3.5 py-2 rounded-xl border border-amber-200 bg-amber-50 text-amber-700 text-xs font-bold flex items-center gap-2';
+                statusBadge.innerHTML = `<i data-lucide="clock" class="w-4 h-4 text-amber-600"></i> Chưa hoàn thành (${evalData.percent}%)`;
+                progressBar.className = 'bg-amber-500 h-full rounded-full transition-all duration-500';
+            } else {
+                statusBadge.className = 'self-start sm:self-center px-3.5 py-2 rounded-xl border border-rose-200 bg-rose-50 text-rose-700 text-xs font-bold flex items-center gap-2';
+                statusBadge.innerHTML = `<i data-lucide="alert-triangle" class="w-4 h-4 text-rose-600"></i> Chưa hoàn thành nhiệm vụ`;
+                progressBar.className = 'bg-rose-500 h-full rounded-full transition-all duration-500';
+            }
+        }
+
+        function renderTaskList() {
+            const container = document.getElementById('task-list');
+            const dayData = state.days[state.selectedDate];
+            const tasks = dayData ? dayData.tasks : [];
+
+            let filteredTasks = tasks;
+            if (state.filter === 'pending') filteredTasks = tasks.filter(t => !t.completed);
+            if (state.filter === 'completed') filteredTasks = tasks.filter(t => t.completed);
+
+            if (filteredTasks.length === 0) {
+                container.innerHTML = `
+                    <div class="py-12 text-center flex flex-col items-center justify-center text-slate-400">
+                        <div class="bg-slate-100 p-3.5 rounded-full mb-3">
+                            <i data-lucide="clipboard-check" class="w-7 h-7 text-slate-400"></i>
+                        </div>
+                        <p class="text-sm font-semibold text-slate-600">Chưa có nhiệm vụ nào ở mục này</p>
+                        <p class="text-xs mt-1">Hãy thêm các task học tập hoặc công việc ở khung phía trên để bắt đầu!</p>
+                    </div>
+                `;
+                lucide.createIcons();
+                return;
+            }
+
+            const priorityBadges = {
+                high: '<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-rose-50 text-rose-600 border border-rose-100">Cao</span>',
+                medium: '<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-amber-50 text-amber-600 border border-amber-100">Trung bình</span>',
+                low: '<span class="px-2 py-0.5 rounded-md text-[11px] font-semibold bg-emerald-50 text-emerald-600 border border-emerald-100">Thấp</span>'
+            };
+
+            container.innerHTML = filteredTasks.map(task => `
+                <div class="group flex items-center justify-between gap-3 p-3.5 rounded-xl border transition-all ${task.completed ? 'bg-slate-50/80 border-slate-200/80' : 'bg-white border-slate-200 hover:border-indigo-300 shadow-xs'}">
+                    <div class="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
+                        <button type="button" onclick="toggleTask('${task.id}')" class="mt-0.5 sm:mt-0 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors shrink-0 ${task.completed ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-300 hover:border-indigo-500 bg-white'}">
+                            ${task.completed ? '<i data-lucide="check" class="w-3.5 h-3.5 stroke-[3]"></i>' : ''}
+                        </button>
+
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-semibold transition-all break-words ${task.completed ? 'line-through text-slate-400' : 'text-slate-800'}">
+                                ${escapeHtml(task.title)}
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2 mt-1">
+                                ${task.time ? `<span class="inline-flex items-center gap-1 text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md"><i data-lucide="clock" class="w-3 h-3"></i> ${escapeHtml(task.time)}</span>` : ''}
+                                ${priorityBadges[task.priority] || priorityBadges.medium}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity shrink-0">
+                        <button type="button" onclick="editTask('${task.id}')" class="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition" title="Chỉnh sửa">
+                            <i data-lucide="pencil" class="w-4 h-4"></i>
+                        </button>
+                        <button type="button" onclick="deleteTask('${task.id}')" class="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition" title="Xóa">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            lucide.createIcons();
+        }
+
+        function renderReasonBox() {
+            const evalData = getDayEvaluation(state.selectedDate);
+            const reasonCard = document.getElementById('reason-card');
+            const reasonInput = document.getElementById('reason-input');
+            const savedStatus = document.getElementById('reason-saved-status');
+
+            if ((evalData.status === 'partial' || evalData.status === 'failed') && state.selectedDate <= todayKey) {
+                reasonCard.classList.remove('hidden');
+                reasonInput.value = evalData.reason || '';
+                if (evalData.reason && evalData.reason.trim() !== '') {
+                    savedStatus.classList.remove('hidden');
+                } else {
+                    savedStatus.classList.add('hidden');
+                }
+            } else {
+                reasonCard.classList.add('hidden');
+            }
+        }
+
+        function updateIncompleteBadge() {
+            const allDates = Object.keys(state.days);
+            let incompleteCount = 0;
+
+            allDates.forEach(dateKey => {
+                if (dateKey > todayKey) return;
+                const ev = getDayEvaluation(dateKey);
+                if (ev.status === 'partial' || ev.status === 'failed') {
+                    incompleteCount++;
+                }
+            });
+
+            const badge = document.getElementById('badge-incomplete-count');
+            if (incompleteCount > 0) {
+                badge.textContent = incompleteCount;
+                badge.classList.remove('hidden');
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
+        // --- 8. RENDER TRANG THỐNG KÊ & NHẬT KÝ LÝ DO ---
+        function renderAnalytics() {
+            const allDates = Object.keys(state.days).sort((a, b) => b.localeCompare(a));
+            
+            let totalTasks = 0;
+            let completedTasks = 0;
+            let perfectDays = 0;
+            let incompleteDaysList = [];
+
+            allDates.forEach(dateKey => {
+                if (dateKey > todayKey) return;
+
+                const ev = getDayEvaluation(dateKey);
+                if (ev.status === 'empty') return;
+
+                totalTasks += ev.total;
+                completedTasks += ev.completed;
+
+                if (ev.status === 'completed') {
+                    perfectDays++;
+                } else if (ev.status === 'partial' || ev.status === 'failed') {
+                    incompleteDaysList.push({
+                        dateKey,
+                        ...ev,
+                        pendingTasks: state.days[dateKey].tasks.filter(t => !t.completed)
+                    });
+                }
+            });
+
+            let streak = 0;
+            const sortedAsc = [...allDates].sort((a, b) => a.localeCompare(b));
+            for (let i = sortedAsc.length - 1; i >= 0; i--) {
+                if (sortedAsc[i] > todayKey) continue;
+                const ev = getDayEvaluation(sortedAsc[i]);
+                if (ev.status === 'empty') continue;
+                if (ev.status === 'completed') {
+                    streak++;
+                } else {
+                    break;
+                }
+            }
+
+            const completionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
+
+            document.getElementById('stat-completion-rate').textContent = `${completionRate}%`;
+            document.getElementById('stat-streak').textContent = `${streak} ngày`;
+            document.getElementById('stat-perfect-days').textContent = `${perfectDays} ngày`;
+            document.getElementById('stat-incomplete-days').textContent = `${incompleteDaysList.length} ngày`;
+
+            // Phân nhóm lý do dựa trên từ khóa
+            const categories = [
+                { name: 'Bận việc đột xuất', keywords: ['bận', 'đột xuất', 'gia đình', 'việc riêng'], count: 0, color: 'bg-indigo-500' },
+                { name: 'Khối lượng bài vở / Quá tải', keywords: ['khối lượng', 'quá nhiều', 'quá tải', 'dài'], count: 0, color: 'bg-rose-500' },
+                { name: 'Mệt mỏi / Sức khỏe', keywords: ['mệt', 'sức khỏe', 'ốm', 'ngủ'], count: 0, color: 'bg-amber-500' },
+                { name: 'Quản lý thời gian / Mất tập trung', keywords: ['thời gian', 'tập trung', 'trì hoãn', 'lười'], count: 0, color: 'bg-purple-500' },
+                { name: 'Sự cố kỹ thuật / Mất mạng', keywords: ['sự cố', 'kỹ thuật', 'mạng', 'mất điện', 'máy'], count: 0, color: 'bg-cyan-500' },
+                { name: 'Chưa nhập lý do / Nguyên nhân khác', keywords: [], count: 0, color: 'bg-slate-400' }
+            ];
+
+            incompleteDaysList.forEach(item => {
+                const r = (item.reason || '').toLowerCase();
+                if (!r) {
+                    categories[5].count++;
+                    return;
+                }
+                let matched = false;
+                for (let i = 0; i < 5; i++) {
+                    if (categories[i].keywords.some(kw => r.includes(kw))) {
+                        categories[i].count++;
+                        matched = true;
+                        break;
+                    }
+                }
+                if (!matched) categories[5].count++;
+            });
+
+            const chartContainer = document.getElementById('reason-chart-container');
+            if (incompleteDaysList.length === 0) {
+                chartContainer.innerHTML = `<p class="text-xs text-slate-400 italic py-4">Chưa có dữ liệu ngày không hoàn thành. Bạn đang làm rất tốt!</p>`;
+            } else {
+                chartContainer.innerHTML = categories
+                    .filter(c => c.count > 0)
+                    .sort((a, b) => b.count - a.count)
+                    .map(cat => {
+                        const pct = Math.round((cat.count / incompleteDaysList.length) * 100);
+                        return `
+                            <div>
+                                <div class="flex justify-between text-xs font-semibold mb-1">
+                                    <span class="text-slate-700">${cat.name}</span>
+                                    <span class="text-slate-500">${cat.count} ngày (${pct}%)</span>
+                                </div>
+                                <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
+                                    <div class="${cat.color} h-full rounded-full" style="width: ${pct}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+            }
+
+            const topCat = [...categories].sort((a, b) => b.count - a.count)[0];
+            const adviceEl = document.getElementById('analytics-advice');
+            if (incompleteDaysList.length > 0 && topCat.count > 0) {
+                adviceEl.textContent = `Nguyên nhân phổ biến nhất của bạn là "${topCat.name}" (${topCat.count} lần). Hãy thử đặt giới hạn tối đa 3-4 task cốt lõi mỗi ngày và dự phòng 30 phút trống cuối ngày nhé!`;
+            }
+
+            const historyContainer = document.getElementById('incomplete-history-list');
+            if (incompleteDaysList.length === 0) {
+                historyContainer.innerHTML = `
+                    <div class="py-12 text-center text-slate-400">
+                        <i data-lucide="party-popper" class="w-8 h-8 mx-auto text-emerald-500 mb-2"></i>
+                        <p class="text-sm font-semibold text-slate-700">Không có ngày nào bỏ lỡ nhiệm vụ!</p>
+                        <p class="text-xs mt-1">Tiếp tục phát huy phong độ kỷ luật này nhé.</p>
+                    </div>
+                `;
+            } else {
+                historyContainer.innerHTML = incompleteDaysList.map(item => {
+                    const dObj = parseDateKey(item.dateKey);
+                    const hasReason = item.reason && item.reason.trim() !== '';
+
+                    return `
+                        <div class="p-4 rounded-xl border ${hasReason ? 'border-slate-200 bg-slate-50/50' : 'border-rose-200 bg-rose-50/40'} transition hover:border-indigo-300">
+                            <div class="flex flex-wrap items-center justify-between gap-2 mb-2">
+                                <div class="flex items-center gap-2">
+                                    <span class="text-sm font-bold text-slate-900">${getVietnameseWeekday(dObj)}, ${formatDisplayDate(item.dateKey)}</span>
+                                    <span class="text-[11px] font-bold px-2 py-0.5 rounded-md bg-rose-100 text-rose-700">
+                                        Xong ${item.completed}/${item.total} (${item.percent}%)
+                                    </span>
+                                </div>
+                                <button onclick="jumpToDate('${item.dateKey}')" class="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1">
+                                    <span>Xem / Sửa lý do</span>
+                                    <i data-lucide="arrow-up-right" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+
+                            <div class="mb-2.5">
+                                <span class="text-[11px] font-semibold text-slate-500 block mb-1">Nhiệm vụ chưa hoàn thành:</span>
+                                <ul class="list-disc list-inside text-xs text-slate-700 space-y-0.5">
+                                    ${item.pendingTasks.map(t => `<li>${escapeHtml(t.title)}</li>`).join('')}
+                                </ul>
+                            </div>
+
+                            <div class="p-2.5 rounded-lg ${hasReason ? 'bg-white border border-slate-200 text-slate-700' : 'bg-rose-100/80 text-rose-800 font-medium'} text-xs flex items-start gap-2">
+                                <i data-lucide="${hasReason ? 'message-square-quote' : 'alert-circle'}" class="w-4 h-4 shrink-0 mt-0.5 ${hasReason ? 'text-indigo-500' : 'text-rose-600'}"></i>
+                                <div>
+                                    <span class="font-bold">Lý do: </span>
+                                    <span>${hasReason ? escapeHtml(item.reason) : 'Chưa ghi nhận lý do! Nhấn "Xem / Sửa lý do" để bổ sung.'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+            lucide.createIcons();
+        }
+
+        window.jumpToDate = function(dateKey) {
+            selectDate(dateKey);
+            switchTab('planner');
+            setTimeout(() => {
+                const reasonInput = document.getElementById('reason-input');
+                if (reasonInput) reasonInput.focus();
+            }, 150);
+        };
+
+        function escapeHtml(str) {
+            const div = document.createElement('div');
+            div.textContent = str;
+            return div.innerHTML;
+        }
+
+        // Khởi chạy ứng dụng khi tải trang
+        window.addEventListener('DOMContentLoaded', async () => {
+            loadFromStorage();
+            renderAll();
+            lucide.createIcons();
+
+            // Tự động kết nối ngay lập tức với dự án Firebase study-and-task-planner
+            const activeConfig = getActiveFirebaseConfig();
+            const connected = await connectToFirebase(activeConfig, getSyncId());
+            if (!connected) {
+                showToast('Chưa thể đồng bộ Cloud: Hãy đảm bảo đã bật Firestore (Test Mode) & Anonymous Auth trên Firebase!', 'error');
+            }
+        });
+    </script>
+</body>
+</html>
