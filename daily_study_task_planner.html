@@ -548,7 +548,7 @@
             if (isCloudConnected && fbDb && !isApplyingRemoteUpdate) {
                 try {
                     if (!currentUser) return;
-                    const docRef = doc(fbDb, 'artifacts', appId, 'users', currentUser.uid, 'planner');
+                    const docRef = doc(fbDb, 'artifacts', appId, 'users', currentUser.uid, 'planners', 'main');
                     await setDoc(docRef, {
                         days: state.days,
                         ownerUid: currentUser.uid,
@@ -688,7 +688,7 @@
                 realtimeSyncInterval = null;
             }
             const syncId = user.uid;
-            const docRef = doc(fbDb, 'artifacts', appId, 'users', syncId, 'planner');
+            const docRef = doc(fbDb, 'artifacts', appId, 'users', syncId, 'planners', 'main');
 
             unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
                 if (!currentUser || currentUser.uid !== user.uid) return;
