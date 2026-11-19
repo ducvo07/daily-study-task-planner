@@ -1,4 +1,4 @@
-const CACHE_NAME = 'study-planner-v1';
+const CACHE_NAME = 'study-planner-v3';
 const APP_SHELL = ['./', './index.html', './manifest.webmanifest'];
 
 self.addEventListener('install', event => {
@@ -20,6 +20,13 @@ self.addEventListener('fetch', event => {
   if (event.request.url.includes('firestore.googleapis.com') ||
       event.request.url.includes('firebase.googleapis.com') ||
       event.request.url.includes('gstatic.com')) return;
+
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match('./index.html'))
+    );
+    return;
+  }
 
   event.respondWith(
     fetch(event.request)

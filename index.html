@@ -538,6 +538,7 @@
         const STORAGE_KEY_PREFIX = 'daily_study_planner_v1';
         const FB_CONFIG_KEY = 'daily_study_planner_fb_config';
         const SYNC_ID_KEY = 'daily_study_planner_sync_id';
+        const AUTH_SESSION_HINT_KEY = 'daily_study_planner_auth_session';
         const DEFAULT_SYNC_ID = 'duc-planner-2026';
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'study-and-task-planner';
 
@@ -766,7 +767,11 @@
                         renderAll();
                         updateAccountUI(null);
                         updateSyncStatusUI(false);
-                        openAccountModal();
+                        setTimeout(() => {
+                            if (!currentUser && !localStorage.getItem(AUTH_SESSION_HINT_KEY)) {
+                                openAccountModal();
+                            }
+                        }, 800);
                         return;
                     }
                     if (currentUser && currentUser.uid !== user.uid) {
@@ -778,6 +783,7 @@
                     }
                     currentUser = user;
                     isCloudConnected = true;
+                    localStorage.setItem(AUTH_SESSION_HINT_KEY, user.uid);
                     state.days = {};
                     const localData = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${user.uid}`);
                     if (localData) {
@@ -901,7 +907,8 @@
             const email = document.getElementById('account-email').value.trim();
             const password = document.getElementById('account-password').value;
             try {
-                await signInWithEmailAndPassword(fbAuth, email, password);
+                const credential = await signInWithEmailAndPassword(fbAuth, email, password);
+                localStorage.setItem(AUTH_SESSION_HINT_KEY, credential.user.uid);
                 document.getElementById('account-password').value = '';
             } catch (error) {
                 let message = error.message;
@@ -924,6 +931,7 @@
             if (fbAuth) {
                 await signOut(fbAuth);
             }
+            localStorage.removeItem(AUTH_SESSION_HINT_KEY);
             currentUser = null;
             state.days = {};
             state.selectedDate = todayKey;
