@@ -50,6 +50,13 @@
 
             <!-- Nút chuyển đổi giữa Lịch trình & Thống kê -->
             <div class="flex items-center gap-2 sm:gap-3">
+                <button onclick="openAccountModal()" id="account-btn" class="hidden sm:flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 transition">
+                    <i data-lucide="circle-user-round" class="w-4 h-4"></i>
+                    <span id="account-label">Tài khoản</span>
+                </button>
+                <button onclick="logoutAccount()" id="logout-btn" class="hidden px-2.5 py-1.5 rounded-xl border border-rose-200 bg-rose-50 text-xs font-semibold text-rose-700 hover:bg-rose-100 transition">
+                    Đăng xuất
+                </button>
                 <!-- Nút trạng thái đồng bộ Cloud -->
                 <button onclick="openSyncModal()" id="sync-status-btn" class="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-semibold transition bg-amber-50 border-amber-200 text-amber-700 hover:bg-amber-100" title="Cấu hình đồng bộ điện thoại & máy tính">
                     <span id="sync-dot" class="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -170,6 +177,34 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- MODAL ĐĂNG NHẬP TÀI KHOẢN -->
+    <div id="account-modal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-slate-900/50 backdrop-blur-sm p-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-2xl max-w-sm w-full p-6">
+            <div class="flex items-center justify-between mb-5">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-900">Đăng nhập</h3>
+                    <p class="text-xs text-slate-500 mt-1">Mỗi tài khoản sẽ có lịch riêng</p>
+                </div>
+                <button type="button" onclick="closeAccountModal()" class="p-2 text-slate-400 hover:bg-slate-100 rounded-xl">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <form onsubmit="loginAccount(event)" class="space-y-3">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Email</label>
+                    <input id="account-email" type="email" autocomplete="email" required class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Mật khẩu</label>
+                    <input id="account-password" type="password" autocomplete="current-password" required class="w-full rounded-xl border border-slate-300 px-3.5 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl py-2.5 text-sm font-bold transition">
+                    Đăng nhập
+                </button>
+            </form>
         </div>
     </div>
 
@@ -467,7 +502,7 @@
     <!-- ==================== JAVASCRIPT LOGIC & FIREBASE CLOUD SYNC ==================== -->
     <script type="module">
         import { initializeApp, deleteApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getAuth, onAuthStateChanged, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // --- 1. QUẢN LÝ TRẠNG THÁI & DỮ LIỆU ---
@@ -523,6 +558,7 @@
         let isApplyingRemoteUpdate = false;
         let localMutationAt = 0;
         let pendingLocalWrite = false;
+        let currentUser = null;
 
         // Khởi tạo dữ liệu mẫu sinh động nếu người dùng mở lần đầu
         function initSampleData() {
@@ -602,8 +638,8 @@
             // Nếu đang kết nối Firebase và không phải đang nhận dữ liệu từ Cloud thì đẩy lên Firestore
             if (isCloudConnected && fbDb && !isApplyingRemoteUpdate) {
                 try {
-                    const syncId = getSyncId();
-                    const docRef = doc(fbDb, 'artifacts', appId, 'public', 'data', 'planners', syncId);
+                    if (!currentUser) return;
+                    const docRef = doc(fbDb, 'artifacts', appId, 'users', currentUser.uid, 'planner');
                     await setDoc(docRef, {
                         days: state.days,
                         updatedAt: new Date().toISOString()
@@ -676,45 +712,22 @@
                 fbApp = initializeApp(configObj, 'planner-sync-app-' + Date.now());
                 fbAuth = getAuth(fbApp);
                 fbDb = getFirestore(fbApp);
+                await setPersistence(fbAuth, browserLocalPersistence);
 
-                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                    await signInWithCustomToken(fbAuth, __initial_auth_token);
-                } else {
-                    await signInAnonymously(fbAuth);
-                }
-
-                const docRef = doc(fbDb, 'artifacts', appId, 'public', 'data', 'planners', syncId);
-
-                unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
-                    isCloudConnected = true;
-                    updateSyncStatusUI(true, syncId);
-
-                    if (snapshot.exists()) {
-                        const remoteData = snapshot.data();
-                        if (remoteData && remoteData.days) {
-                            // Không áp dụng snapshot cũ khi một thao tác xóa/cập nhật
-                            // vừa được ghi; chờ đến khi Firestore trả về đúng dữ liệu mới.
-                            if (pendingLocalWrite) {
-                                const remoteJson = JSON.stringify(remoteData.days);
-                                const localJson = JSON.stringify(state.days);
-                                if (remoteJson !== localJson) return;
-                                pendingLocalWrite = false;
-                            }
-                            isApplyingRemoteUpdate = true;
-                            state.days = remoteData.days;
-                            localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
-                            renderAll();
-                            isApplyingRemoteUpdate = false;
-                        }
-                    } else {
-                        pendingLocalWrite = false;
-                        saveToStorage();
+                onAuthStateChanged(fbAuth, (user) => {
+                    if (!user) {
+                        currentUser = null;
+                        isCloudConnected = false;
+                        updateAccountUI(null);
+                        updateSyncStatusUI(false);
+                        openAccountModal();
+                        return;
                     }
-                }, (error) => {
-                    console.error('Lỗi lắng nghe Firestore:', error);
-                    isCloudConnected = false;
-                    updateSyncStatusUI(false);
-                    showToast('Lỗi kết nối Firestore: ' + error.message, 'error');
+                    currentUser = user;
+                    isCloudConnected = true;
+                    updateAccountUI(user);
+                    closeAccountModal();
+                    subscribeToCurrentUser(user);
                 });
 
                 return true;
@@ -725,6 +738,45 @@
                 showToast('Không thể kết nối Firebase: ' + err.message, 'error');
                 return false;
             }
+        }
+
+        function subscribeToCurrentUser(user) {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+            const syncId = user.uid;
+            const docRef = doc(fbDb, 'artifacts', appId, 'users', syncId, 'planner');
+
+            unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
+                isCloudConnected = true;
+                updateSyncStatusUI(true, syncId);
+
+                if (snapshot.exists()) {
+                    const remoteData = snapshot.data();
+                    if (remoteData && remoteData.days) {
+                        if (pendingLocalWrite) {
+                            const remoteJson = JSON.stringify(remoteData.days);
+                            const localJson = JSON.stringify(state.days);
+                            if (remoteJson !== localJson) return;
+                            pendingLocalWrite = false;
+                        }
+                        isApplyingRemoteUpdate = true;
+                        state.days = remoteData.days;
+                        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.days));
+                        renderAll();
+                        isApplyingRemoteUpdate = false;
+                    }
+                } else {
+                    pendingLocalWrite = false;
+                    saveToStorage();
+                }
+            }, (error) => {
+                console.error('Lỗi lắng nghe Firestore:', error);
+                isCloudConnected = false;
+                updateSyncStatusUI(false);
+                showToast('Lỗi kết nối Firestore: ' + error.message, 'error');
+            });
         }
 
         function updateSyncStatusUI(connected, syncId = '') {
@@ -781,6 +833,63 @@
             modal.classList.add('hidden');
             modal.classList.remove('flex');
         };
+
+        window.openAccountModal = function() {
+            if (currentUser) return;
+            const modal = document.getElementById('account-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            lucide.createIcons();
+        };
+
+        window.closeAccountModal = function() {
+            if (!currentUser) return;
+            const modal = document.getElementById('account-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        };
+
+        window.loginAccount = async function(event) {
+            event.preventDefault();
+            const email = document.getElementById('account-email').value.trim();
+            const password = document.getElementById('account-password').value;
+            try {
+                await signInWithEmailAndPassword(fbAuth, email, password);
+                document.getElementById('account-password').value = '';
+            } catch (error) {
+                let message = error.message;
+                if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found') {
+                    message = 'Email hoặc mật khẩu không đúng.';
+                }
+                showToast(message, 'error');
+            }
+        };
+
+        window.logoutAccount = async function() {
+            if (unsubscribeSnapshot) {
+                unsubscribeSnapshot();
+                unsubscribeSnapshot = null;
+            }
+            await signOut(fbAuth);
+            openAccountModal();
+        };
+
+        function updateAccountUI(user) {
+            const accountLabel = document.getElementById('account-label');
+            const logoutBtn = document.getElementById('logout-btn');
+            if (user) {
+                let name = user.displayName || user.email || 'Tài khoản';
+                if (user.email === 'voduc257@gmail.com') name = 'duc';
+                if (user.email === 'quynhnhum88@gmail.com') name = 'nhu';
+                accountLabel.textContent = name.split('@')[0];
+                logoutBtn.classList.remove('hidden');
+                logoutBtn.classList.add('inline-flex');
+            } else {
+                accountLabel.textContent = 'Tài khoản';
+                logoutBtn.classList.add('hidden');
+                logoutBtn.classList.remove('inline-flex');
+            }
+        }
 
         window.toggleFirebaseGuide = function() {
             const box = document.getElementById('firebase-guide-box');
@@ -1578,9 +1687,9 @@
             renderAll();
             lucide.createIcons();
 
-            // Tự động kết nối ngay lập tức với dự án Firebase study-and-task-planner
+            // Tự động khôi phục phiên đăng nhập đã lưu trong trình duyệt.
             const activeConfig = getActiveFirebaseConfig();
-            const connected = await connectToFirebase(activeConfig, getSyncId());
+            const connected = await connectToFirebase(activeConfig, '');
             if (!connected) {
                 showToast('Chưa thể đồng bộ Cloud: Hãy đảm bảo đã bật Firestore (Test Mode) & Anonymous Auth trên Firebase!', 'error');
             }
