@@ -649,6 +649,7 @@
                     const docRef = doc(fbDb, 'artifacts', appId, 'users', currentUser.uid, 'planner');
                     await setDoc(docRef, {
                         days: state.days,
+                        ownerUid: currentUser.uid,
                         updatedAt: new Date().toISOString()
                     });
                 } catch (err) {
@@ -723,8 +724,14 @@
 
                 onAuthStateChanged(fbAuth, (user) => {
                     if (!user) {
+                        if (unsubscribeSnapshot) {
+                            unsubscribeSnapshot();
+                            unsubscribeSnapshot = null;
+                        }
                         currentUser = null;
                         isCloudConnected = false;
+                        pendingLocalWrite = false;
+                        isApplyingRemoteUpdate = false;
                         state.days = {};
                         state.selectedDate = todayKey;
                         renderAll();
@@ -736,11 +743,21 @@
                     if (currentUser && currentUser.uid !== user.uid) {
                         pendingLocalWrite = false;
                         isApplyingRemoteUpdate = false;
+                        if (unsubscribeSnapshot) {
+                            unsubscribeSnapshot();
+                            unsubscribeSnapshot = null;
+                        }
                     }
                     currentUser = user;
                     isCloudConnected = true;
                     state.days = {};
-                    loadFromStorage();
+                    const localData = localStorage.getItem(`${STORAGE_KEY_PREFIX}_${user.uid}`);
+                    if (localData) {
+                        try {
+                            const parsed = JSON.parse(localData);
+                            if (parsed && typeof parsed === 'object') state.days = parsed;
+                        } catch (_) {}
+                    }
                     renderAll();
                     updateAccountUI(user);
                     closeAccountModal();
@@ -766,12 +783,13 @@
             const docRef = doc(fbDb, 'artifacts', appId, 'users', syncId, 'planner');
 
             unsubscribeSnapshot = onSnapshot(docRef, (snapshot) => {
+                if (!currentUser || currentUser.uid !== user.uid) return;
                 isCloudConnected = true;
                 updateSyncStatusUI(true, syncId);
 
                 if (snapshot.exists()) {
                     const remoteData = snapshot.data();
-                    if (remoteData && remoteData.days) {
+                    if (remoteData && remoteData.days && remoteData.ownerUid === user.uid) {
                         if (pendingLocalWrite) {
                             const remoteJson = JSON.stringify(remoteData.days);
                             const localJson = JSON.stringify(state.days);
@@ -786,7 +804,9 @@
                     }
                 } else {
                     pendingLocalWrite = false;
-                    saveToStorage();
+                    if (currentUser && currentUser.uid === user.uid) {
+                        saveToStorage();
+                    }
                 }
             }, (error) => {
                 console.error('Lỗi lắng nghe Firestore:', error);
@@ -887,11 +907,13 @@
                 unsubscribeSnapshot();
                 unsubscribeSnapshot = null;
             }
+            if (fbAuth) {
+                await signOut(fbAuth);
+            }
             currentUser = null;
             state.days = {};
             state.selectedDate = todayKey;
             renderAll();
-            await signOut(fbAuth);
             openAccountModal();
         };
 
