@@ -1,0 +1,12 @@
+{
+  "name": "Daily Study & Task Planner",
+  "short_name": "Study Planner",
+  "description": "Kế hoạch học tập và công việc cá nhân",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#4f46e5",
+  "orientation": "portrait-primary",
+  "icons": []
+}
